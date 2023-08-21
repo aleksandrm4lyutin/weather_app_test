@@ -1,12 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert' as convert;
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-
+import 'package:weather_app_test/functions/data_service.dart';
 import '../abstracts/data_package.dart';
-import '../abstracts/weather_data.dart';
+import '../abstracts/images.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -23,60 +21,11 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  String apiKey = '5273504e966bca97cff56a6e767a7eb9';
-  String urlLink = 'https://api.openweathermap.org/data/3.0/onecall?lat=33.44&lon=-94.04&appid={API key}';
-  String response = '';
-  List<String> images = [
-    'icon_0.png',
-    'icon_1.png',
-    'icon_2.png',
-    'icon_3.png',
-    'icon_4.png',
-    'icon_5.png',
-  ];
   int iconID = 0;
-
-  String capitalize(String s) => s[0].toUpperCase() + s.substring(1);
-
-  Future<Map<String, dynamic>?> makeRequest(double lat, double lon) async {
-    var url = Uri.parse(
-      'https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&cnt=10&appid=$apiKey&lang=ru&units=metric'
-    );
-    var response = await http.get(url);
-    // String s = response.body;
-    Map<String, dynamic>? jsonResponse;
-    if (response.statusCode == 200) {
-      jsonResponse = convert.jsonDecode(response.body) as Map<String, dynamic>;
-      print('&&&&&&&&&&&&&&&&&&&&&&');
-      print('$jsonResponse');
-      print('&&&&&&&&&&&&&&&&&&&&&&');
-      print('');
-      print('City: ${jsonResponse['city']}');
-      print('Country: ${jsonResponse['city']['country']}');
-      print('City: ${jsonResponse['city']['name']}');
-      for(var l in jsonResponse['list']) {
-        print('+++++++++++++++');
-        print('DT -> now: ${l['dt']} -> ${DateTime.now().millisecondsSinceEpoch~/1000}');
-        print('Diff: ${ DateTime.fromMillisecondsSinceEpoch(l['dt'] * 1000).difference(DateTime.now()).inDays }');
-        print('===============');
-        print('DT DM: ${DateFormat.MMMMd('ru_RU').format(DateTime.fromMillisecondsSinceEpoch(l['dt'] * 1000))}');
-        print('DT HM: ${DateFormat.Hm('ru_RU').format(DateTime.fromMillisecondsSinceEpoch(l['dt'] * 1000))}');
-        print('Humidity: ${l['main']['humidity']}%');
-        print('Wind: ${l['wind']['speed'].toInt()}>>');
-        print('Temp Average: ${((l['main']['temp_min'] + l['main']['temp_max']) * 0.5).toInt()}°');
-        print('Temp Min_Max: ${l['main']['temp_min'].toInt()}° - ${l['main']['temp_max'].toInt()}°');
-        print('Weather: ${capitalize(l['weather'][0]['description'])}');
-        print('Weather1: ${capitalize(l['weather'][0]['main'])}');
-        print(l);
-      }
-
-      //print('$jsonResponse');
-    } else {
-      print('Request failed with status: ${response.statusCode}.');
-    }
-    return jsonResponse;
-  }
-
+  DataService dataService = DataService();
+  List<String> bIcons = Images.bIcons;
+  List<String> sIcons = Images.sIcons;
+  int selected = 0;
 
 
   @override
@@ -84,23 +33,15 @@ class _HomePageState extends State<HomePage> {
     super.initState();
 
     initializeDateFormatting('ru_RU');
-    print('WIDGET DATA:');
-    print('city: ${widget.data.city}');
-    print('country: ${widget.data.country}');
-    print('wd.length: ${widget.data.weatherData.length}');
-    for(var wd in widget.data.weatherData) {
-      print('dt: ${wd.dt}');
-      print('dt m: ${DateTime.fromMillisecondsSinceEpoch(wd.dt).month}');
-      print('dt d: ${DateTime.fromMillisecondsSinceEpoch(wd.dt).day}');
-    }
-
   }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
+          /// gradient
           Container(
             decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -115,7 +56,36 @@ class _HomePageState extends State<HomePage> {
           ),
 
           Padding(
-            padding: const EdgeInsets.only(top: 40),
+            padding: const EdgeInsets.fromLTRB(20, 50, 0, 0),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  color: Colors.white,
+                  size: 27,
+                ),
+                const SizedBox(width: 10,),
+                Text('${dataService.decodeCountry(widget.data.country)}, ',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontFamily: 'RobotoRegular'
+                  ),
+                ),
+                Text(widget.data.city,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontFamily: 'RobotoRegular'
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          /// big icon
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
             child: Container(
               width: MediaQuery.of(context).size.width,
               height: MediaQuery.of(context).size.width,
@@ -130,64 +100,279 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               child: Image(
-                image: AssetImage('assets/images/${images[iconID]}'),
+                image: AssetImage('assets/images/${bIcons[dataService.decodeWeatherID(widget.data.weatherData[selected].weatherCode)]}'),
                 // height: 100,
                 // width: 100,
               ),
             ),
           ),
 
+          ///
           Column(
+            mainAxisSize: MainAxisSize.max,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              SizedBox(height: 500,),
 
               Center(
-                child: TextButton(
-                  onPressed: () async {
-                    LocationPermission permission = await Geolocator.checkPermission();
-                    print('$permission');
-                    if(permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-                      Geolocator.requestPermission();
-                    } else {
-                      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-                      print('${position.latitude} ${position.longitude}');
-
-                      Map<String, dynamic>? result = await makeRequest(position.latitude, position.longitude);
-                      if(result != null) {
-
-                        int id;
-                        if(result['list'][1]['weather'][0]['id'] is int) {
-                          id = result['list'][1]['weather'][0]['id'];
-                        } else {
-                          id = int.tryParse(result['list'][1]['weather'][0]['id']) ?? 800;
-                        }
-
-                        if(id < 300) {
-                          iconID = 0;
-                        } else if(id > 299 && id < 500) {
-                          iconID = 1;
-                        } else if(id > 499 && id < 600) {
-                          iconID = 2;
-                        } else if(id > 599 && id < 701) {
-                          iconID = 3;
-                        } else if(id > 700 && id < 801) {
-                          iconID = 4;
-                        } else if(id > 800) {
-                          iconID = 5;
-                        } else {
-                          iconID = 4;
-                        }
-
-                        setState(() {
-
-                        });
-                        print('$iconID');
-                      }
-                    }
-                  },
-                  child: Text('get ${widget.data.code}'),
+                child: Text('${widget.data.weatherData[selected].averageTemp}°',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 54,
+                      fontFamily: 'RobotoRegular'
+                  ),
                 ),
               ),
+
+              Center(
+                child: Text(widget.data.weatherData[selected].name,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontFamily: 'RobotoRegular'
+                  ),
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Макс.: ${widget.data.weatherData[selected].maxTemp}°',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontFamily: 'RobotoRegular'
+                      ),
+                    ),
+                    const SizedBox(width: 5,),
+                    Text('Мин.: ${widget.data.weatherData[selected].minTemp}°',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontFamily: 'RobotoRegular'
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          children: [
+
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(dataService.decodeDay(widget.data.weatherData[selected].dt),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontFamily: 'RobotoBold'
+                                  ),
+                                ),
+
+                                Text(DateFormat.MMMMd('ru_RU').format(DateTime.fromMillisecondsSinceEpoch(widget.data.weatherData[selected].dt)),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontFamily: 'RobotoRegular'
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 20.0),
+                              child: Container(
+                                height: 2,
+                                color: Colors.white60,
+                              ),
+                            ),
+
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: List.generate(widget.data.weatherData.length, (index) {
+                                return InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      selected = index;
+                                    });
+                                  },
+                                  child: Container(
+                                      decoration: selected == index ? BoxDecoration(
+                                        color: Colors.white.withOpacity(0.3),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(width: 2, color: Colors.white30),
+                                      ) : BoxDecoration(
+                                        color: Colors.transparent,
+                                        border: Border.all(width: 2, color: Colors.transparent),
+                                      ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(10.0),
+                                      child: Column(
+                                        children: [
+
+                                          Text(DateFormat.Hm('ru_RU').format(DateTime.fromMillisecondsSinceEpoch(widget.data.weatherData[index].dt)),
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 17,
+                                                fontFamily: 'RobotoRegular'
+                                            ),
+                                          ),
+
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 10.0),
+                                            child: Image(
+                                              image: AssetImage('assets/images/${sIcons[dataService.decodeWeatherID(widget.data.weatherData[index].weatherCode)]}'),
+                                              // height: 100,
+                                              // width: 100,
+                                            ),
+                                          ),
+
+                                          Text('${widget.data.weatherData[index].temp}°',
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 22,
+                                                fontFamily: 'RobotoRegular'
+                                            ),
+                                          ),
+
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Row(
+                          children: [
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.air_rounded,
+                                      color: Colors.white,
+                                      size: 27,
+                                    ),
+                                    const SizedBox(width: 10,),
+                                    Text('${widget.data.weatherData[selected].windSpeed}м/с',
+                                      style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 17,
+                                          fontFamily: 'RobotoRegular'
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 20,),
+
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.water_drop_outlined,
+                                      color: Colors.white,
+                                      size: 27,
+                                    ),
+                                    const SizedBox(width: 10,),
+                                    Text('${widget.data.weatherData[selected].humidity}%',
+                                      style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 17,
+                                          fontFamily: 'RobotoRegular'
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                              ],
+                            ),
+
+                            const SizedBox(width: 20,),
+
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text('Ветер ${dataService.decodeWindDegrees(widget.data.weatherData[selected].windDir)}',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 17,
+                                          fontFamily: 'RobotoRegular'
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 20,),
+
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text('${dataService.decodeHumidity(widget.data.weatherData[selected].humidity)} влажность',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 17,
+                                          fontFamily: 'RobotoRegular'
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10,),
+
             ],
           ),
         ],

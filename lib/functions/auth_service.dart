@@ -5,10 +5,12 @@ class AuthService {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  ///
   Stream<User?> get userStream {
     return _auth.authStateChanges();
   }
 
+  /// login function------------------------------------------------------------
   Future<User?> signInFunction(String email, String password) async {
     try {
       UserCredential result = await _auth.signInWithEmailAndPassword(
@@ -20,5 +22,6 @@ class AuthService {
       return null;
     }
   }
+  /// --------------------------------------------------------------------------
 
 }
